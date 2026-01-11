@@ -100,9 +100,12 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
       const writer = new ID3Writer(audioBuffer);
       writer.setFrame('TIT2', song.name)
         .setFrame('TPE1', [song.primaryArtists])
+        .setFrame('TPE2', song.primaryArtists) // Album Artist
         .setFrame('TALB', song.album.name)
         .setFrame('TYER', parseInt(song.year || new Date().getFullYear().toString()))
-        .setFrame('TLEN', song.duration * 1000); // Duration in ms
+        .setFrame('TLEN', song.duration * 1000)
+        .setFrame('TPUB', song.label) // Publisher
+        .setFrame('TCOP', `© ${song.year} ${song.label}`); // Copyright
 
       if (coverBuffer) {
         writer.setFrame('APIC', {
