@@ -13,6 +13,7 @@
     "browser-id3-writer": "4.0.0",
     "crypto-js": "^4.2.0",
     "lucide-react": "^0.562.0",
+    "mp4box": "^2.3.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
