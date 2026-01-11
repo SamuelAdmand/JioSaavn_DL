@@ -1,22 +1,22 @@
 <div align="center">
-  <img width="1200" alt="JioSaavn Downloader & Player Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-  
   # 🎵 JioSaavn Downloader & Player
   
-  A high-performance, premium web application for searching, playing, and downloading your favorite music from JioSaavn with high-quality metadata and ID3 tagging.
-  
-  [Live Demo](https://ai.studio/apps/drive/1wFxuvSNaTFrzaoAMVr8m_RQC7PA7c9mL) • [Report Bug](https://github.com/yourusername/JioSaavn_DL/issues)
+  A high-performance, premium web application designed for a seamless music experience. Search, stream, and download your favorite tracks from JioSaavn with high-quality metadata and a modern interface.
 </div>
 
 ---
 
-## ✨ Features
+## 🚀 Capabilities
 
-- 🔍 **Smart Search:** Find any song, album, or artist instantly.
-- 🎧 **High Fidelity:** Stream and download music in 160kbps and 320kbps.
-- 🏷️ **ID3 Tagging:** Automatic metadata embedding including album art, artist, and year.
-- 📱 **Responsive Design:** Beautiful, glassmorphic UI that works on mobile and desktop.
-- ⚡ **Real-time Progress:** Track your downloads with a sleek progress interface.
+The platform is built to provide a lightweight yet powerful music management experience:
+
+- 🔍 **Instant Search:** Access the entire JioSaavn library with real-time search results.
+- 🎧 **High-Quality Streaming:** Built-in music player with shuffle, repeat, and volume controls.
+- 📥 **Flexible Downloads:** Save songs directly to your device with multiple bitrate support.
+- 💎 **Multiple Quality Tiers:** Choose between **160kbps** (SQ) and **320kbps** (HQ) for both playback and downloads.
+- 🏷️ **Smart Metadata:** Automatic ID3 tagging including high-resolution album art, artist names, and release years.
+- � **Download Manager:** A dedicated panel to track, manage, and access your downloaded tracks.
+- ✨ **Premium Interface:** A fully responsive, glassmorphic design featuring smooth animations and dark mode aesthetics.
 
 ## 🛠️ Built With
 
