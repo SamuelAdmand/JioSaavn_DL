@@ -37,7 +37,8 @@ export const searchSongs = async (query: string, page: number = 1, limit: number
     return {
       id: song.id,
       name: song.title || song.song || song.name,
-      album: song.album || song.album_name, // Flattened to string
+      // API often returns album as an object {id, name, url}. We MUST strictly flatten it to a string here.
+      album: (typeof song.album === 'object' && song.album !== null) ? song.album.name : (song.album || song.album_name || ''),
       year: song.year,
       releaseDate: song.release_date,
       duration: parseInt(song.duration),
