@@ -1,0 +1,7 @@
+{
+  "name": "JioSaavn Downloader & Player",
+  "description": "A high-performance music search, playback, and download utility using the JioSaavn API with support for multiple bitrates (160kbps, 320kbps) and real-time download tracking.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
