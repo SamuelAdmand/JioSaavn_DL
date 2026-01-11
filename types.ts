@@ -25,6 +25,7 @@ export interface SaavnSong {
   featuredArtists: string;
   image: SaavnImage[];
   downloadUrl: SaavnDownloadUrl[];
+  encrypted_media_url?: string;
 }
 
 export interface DownloadItem {

@@ -68,10 +68,10 @@ export default function App() {
       return;
     }
 
-    const downloadData = song.downloadUrl[bitrate] || 
-                         song.downloadUrl[Bitrate.B320] || 
-                         song.downloadUrl[Bitrate.B160] || 
-                         song.downloadUrl[song.downloadUrl.length - 1];
+    const downloadData = song.downloadUrl[bitrate] ||
+      song.downloadUrl[Bitrate.B320] ||
+      song.downloadUrl[Bitrate.B160] ||
+      song.downloadUrl[song.downloadUrl.length - 1];
 
     if (!downloadData || !downloadData.link) {
       console.error("No download link found for song:", song.name);
@@ -90,39 +90,43 @@ export default function App() {
         size: downloadData.quality.toUpperCase(),
       }
     }));
-    
+
     setShowDownloads(true);
 
     try {
-        const { blobUrl, filename } = await downloadSong(song, downloadData.link);
-        
-        // Update state to done
-        setDownloads(prev => ({
-          ...prev,
-          [song.id]: {
-            ...prev[song.id],
-            status: 'Done',
-            downloadUrl: blobUrl
-          }
-        }));
+      const { blobUrl, filename } = await downloadSong(song, downloadData.link);
 
-        // Trigger automatic download
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      // Update state to done
+      setDownloads(prev => ({
+        ...prev,
+        [song.id]: {
+          ...prev[song.id],
+          status: 'Done',
+          downloadUrl: blobUrl
+        }
+      }));
+
+      // Trigger automatic download
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
     } catch (err) {
-        console.error("Download failed", err);
-        setDownloads(prev => ({
-            ...prev,
-            [song.id]: {
-              ...prev[song.id],
-              status: 'Error',
-            }
-        }));
+      console.warn("Enhanced download failed (likely CORS), falling back to direct link", err);
+      // Fallback: Just try to open the link directly
+      window.open(downloadData.link, '_blank');
+
+      setDownloads(prev => ({
+        ...prev,
+        [song.id]: {
+          ...prev[song.id],
+          status: 'Done', // Mark as done since we handed it off to browser
+          size: 'Direct',
+        }
+      }));
     }
   };
 
@@ -194,10 +198,10 @@ export default function App() {
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-             <div className="p-4 bg-red-500/10 rounded-full mb-4">
-                <Music className="w-8 h-8 text-red-500" />
-             </div>
-             <p className="text-red-400 font-medium">{error}</p>
+            <div className="p-4 bg-red-500/10 rounded-full mb-4">
+              <Music className="w-8 h-8 text-red-500" />
+            </div>
+            <p className="text-red-400 font-medium">{error}</p>
           </div>
         ) : (
           <>
@@ -207,7 +211,7 @@ export default function App() {
                 <p className="text-sm text-zinc-500">Found {results.length} songs for "{query || 'New Hits'}"</p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {results.map((song) => (
                 <SongCard
@@ -263,8 +267,8 @@ export default function App() {
                   <Download className="w-5 h-5 text-indigo-500" />
                 </div>
                 <div>
-                   <h2 className="text-lg font-bold">Downloads</h2>
-                   <p className="text-xs text-zinc-500">Manage your offline tracks</p>
+                  <h2 className="text-lg font-bold">Downloads</h2>
+                  <p className="text-xs text-zinc-500">Manage your offline tracks</p>
                 </div>
               </div>
               <button onClick={() => setShowDownloads(false)} className="p-2 hover:bg-white/5 rounded-full text-zinc-400 hover:text-white transition-colors">
@@ -287,11 +291,10 @@ export default function App() {
                       <h3 className="font-bold text-sm truncate text-zinc-200">{item.name}</h3>
                       <p className="text-xs text-zinc-500 truncate">{item.album}</p>
                       <div className="mt-1.5 flex items-center gap-2">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                            item.status === 'Done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${item.status === 'Done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
                             item.status === 'Downloading' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 animate-pulse' :
-                            'bg-red-500/10 text-red-400 border-red-500/20'
-                        }`}>
+                              'bg-red-500/10 text-red-400 border-red-500/20'
+                          }`}>
                           {item.status}
                         </span>
                         <span className="text-[10px] text-zinc-500">{item.size}</span>
@@ -310,9 +313,9 @@ export default function App() {
                       </a>
                     )}
                     {item.status === 'Downloading' && (
-                        <div className="p-2.5">
-                            <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
-                        </div>
+                      <div className="p-2.5">
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                      </div>
                     )}
                   </div>
                 ))
@@ -342,11 +345,11 @@ const SongCard: React.FC<SongCardProps> = ({ song, bitrate, isPlaying, onPlay, o
   return (
     <div className="group relative p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1">
       <div className="relative aspect-square mb-3 overflow-hidden rounded-xl shadow-lg bg-zinc-900">
-        <img 
-          src={thumbnail} 
-          alt={song.name} 
+        <img
+          src={thumbnail}
+          alt={song.name}
           loading="lazy"
-          className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500 ease-out" 
+          className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500 ease-out"
         />
         {/* Hover Overlay */}
         <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 flex items-center justify-center gap-3 ${isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
@@ -357,7 +360,7 @@ const SongCard: React.FC<SongCardProps> = ({ song, bitrate, isPlaying, onPlay, o
             {isPlaying ? <Pause className="fill-current w-5 h-5" /> : <Play className="fill-current w-5 h-5 ml-1" />}
           </button>
         </div>
-        
+
         {/* Top Right Duration Badge */}
         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md text-[10px] font-bold text-white/90">
           {formatDuration(song.duration)}
@@ -372,14 +375,14 @@ const SongCard: React.FC<SongCardProps> = ({ song, bitrate, isPlaying, onPlay, o
           {artists}
         </p>
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-           <p className="text-xs text-zinc-500 truncate max-w-[70%]">{song.album.name}</p>
-           <button 
-             onClick={(e) => { e.stopPropagation(); onDownload(); }}
-             className="text-zinc-500 hover:text-indigo-400 transition-colors p-1"
-             title="Download"
-           >
-             <Download className="w-4 h-4" />
-           </button>
+          <p className="text-xs text-zinc-500 truncate max-w-[70%]">{song.album.name}</p>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDownload(); }}
+            className="text-zinc-500 hover:text-indigo-400 transition-colors p-1"
+            title="Download"
+          >
+            <Download className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -412,8 +415,8 @@ const Player: React.FC<PlayerProps> = ({ song, bitrate, isPlaying, setIsPlaying,
   }, [song, bitrate, audioUrl]);
 
   useEffect(() => {
-    if(audioRef.current) {
-        audioRef.current.volume = isMuted ? 0 : volume;
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
     }
   }, [volume, isMuted]);
 
@@ -434,15 +437,15 @@ const Player: React.FC<PlayerProps> = ({ song, bitrate, isPlaying, setIsPlaying,
       setProgress(Number(e.target.value));
     }
   };
-  
+
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVol = Number(e.target.value);
     setVolume(newVol);
-    if(newVol > 0 && isMuted) setIsMuted(false);
+    if (newVol > 0 && isMuted) setIsMuted(false);
   };
 
   const toggleMute = () => {
-      setIsMuted(!isMuted);
+    setIsMuted(!isMuted);
   };
 
   const formatTime = (time: number) => {
@@ -455,14 +458,14 @@ const Player: React.FC<PlayerProps> = ({ song, bitrate, isPlaying, setIsPlaying,
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#09090b]/90 backdrop-blur-2xl border-t border-white/10 px-4 py-3 md:px-6 md:py-4 transition-all duration-300">
       <div className="max-w-screen-2xl mx-auto flex items-center justify-between gap-4">
-        
+
         {/* Left: Song Info */}
         <div className="flex items-center gap-4 w-1/3 min-w-[140px]">
           <div className="relative group shrink-0">
-             <img src={song.image[1].link} className="w-14 h-14 rounded-md object-cover shadow-lg border border-white/10 group-hover:opacity-80 transition-opacity" alt="" />
-             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                <Music className="w-6 h-6 text-white drop-shadow-md" />
-             </div>
+            <img src={song.image[1].link} className="w-14 h-14 rounded-md object-cover shadow-lg border border-white/10 group-hover:opacity-80 transition-opacity" alt="" />
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <Music className="w-6 h-6 text-white drop-shadow-md" />
+            </div>
           </div>
           <div className="min-w-0 overflow-hidden">
             <h4 className="font-bold text-sm text-white truncate hover:underline cursor-pointer">{song.name}</h4>
@@ -474,7 +477,7 @@ const Player: React.FC<PlayerProps> = ({ song, bitrate, isPlaying, setIsPlaying,
         <div className="flex flex-col items-center justify-center gap-2 flex-1 max-w-2xl">
           <div className="flex items-center gap-6">
             <button className="text-zinc-400 hover:text-white transition-colors" title="Shuffle">
-                <Shuffle className="w-4 h-4" />
+              <Shuffle className="w-4 h-4" />
             </button>
             <button className="text-zinc-300 hover:text-white transition-colors active:scale-95" title="Previous">
               <SkipBack className="w-5 h-5 fill-current" />
@@ -497,26 +500,26 @@ const Player: React.FC<PlayerProps> = ({ song, bitrate, isPlaying, setIsPlaying,
               <SkipForward className="w-5 h-5 fill-current" />
             </button>
             <button className="text-zinc-400 hover:text-white transition-colors" title="Repeat">
-                <Repeat className="w-4 h-4" />
+              <Repeat className="w-4 h-4" />
             </button>
           </div>
 
           <div className="w-full flex items-center gap-3 text-xs font-medium text-zinc-500">
             <span className="min-w-[40px] text-right text-zinc-300">{formatTime(currentTime)}</span>
             <div className="relative group flex-1 h-4 flex items-center cursor-pointer">
-               {/* Track Background */}
-               <div className="absolute left-0 right-0 h-1 bg-white/10 rounded-full group-hover:h-1.5 transition-all"></div>
-               {/* Progress Fill */}
-               <div 
-                 className="absolute left-0 top-1.5 h-1 bg-indigo-500 rounded-full group-hover:h-1.5 transition-all"
-                 style={{ width: `${progress}%`, top: '50%', transform: 'translateY(-50%)' }}
-               ></div>
-               {/* Thumb (only on hover) */}
-               <div 
-                 className="absolute w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                 style={{ left: `${progress}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
-               ></div>
-               <input
+              {/* Track Background */}
+              <div className="absolute left-0 right-0 h-1 bg-white/10 rounded-full group-hover:h-1.5 transition-all"></div>
+              {/* Progress Fill */}
+              <div
+                className="absolute left-0 top-1.5 h-1 bg-indigo-500 rounded-full group-hover:h-1.5 transition-all"
+                style={{ width: `${progress}%`, top: '50%', transform: 'translateY(-50%)' }}
+              ></div>
+              {/* Thumb (only on hover) */}
+              <div
+                className="absolute w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                style={{ left: `${progress}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
+              ></div>
+              <input
                 type="range"
                 min="0"
                 max="100"
@@ -531,32 +534,32 @@ const Player: React.FC<PlayerProps> = ({ song, bitrate, isPlaying, setIsPlaying,
 
         {/* Right: Volume & Options */}
         <div className="flex items-center justify-end gap-3 w-1/3 min-w-[140px]">
-           <div className="flex items-center gap-2 group/vol">
-              <button onClick={toggleMute} className="text-zinc-400 hover:text-white transition-colors">
-                  {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : volume < 0.5 ? <Volume1 className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-              </button>
-              <div className="w-24 h-1 bg-white/10 rounded-full relative cursor-pointer overflow-hidden group-hover/vol:bg-white/20 transition-colors">
-                  <div 
-                    className="absolute inset-y-0 left-0 bg-zinc-300 group-hover/vol:bg-indigo-400 transition-colors"
-                    style={{ width: `${isMuted ? 0 : volume * 100}%` }}
-                  ></div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={isMuted ? 0 : volume}
-                    onChange={handleVolumeChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-              </div>
-           </div>
-           
-           <div className="hidden lg:block w-px h-6 bg-white/10 mx-1"></div>
-           
-           <div className="text-[10px] font-bold text-indigo-400 px-2 py-1 bg-indigo-500/10 rounded border border-indigo-500/20 uppercase tracking-wider">
-               {bitrate === Bitrate.B320 ? 'HQ' : 'SQ'}
-           </div>
+          <div className="flex items-center gap-2 group/vol">
+            <button onClick={toggleMute} className="text-zinc-400 hover:text-white transition-colors">
+              {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : volume < 0.5 ? <Volume1 className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
+            <div className="w-24 h-1 bg-white/10 rounded-full relative cursor-pointer overflow-hidden group-hover/vol:bg-white/20 transition-colors">
+              <div
+                className="absolute inset-y-0 left-0 bg-zinc-300 group-hover/vol:bg-indigo-400 transition-colors"
+                style={{ width: `${isMuted ? 0 : volume * 100}%` }}
+              ></div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={isMuted ? 0 : volume}
+                onChange={handleVolumeChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div className="hidden lg:block w-px h-6 bg-white/10 mx-1"></div>
+
+          <div className="text-[10px] font-bold text-indigo-400 px-2 py-1 bg-indigo-500/10 rounded border border-indigo-500/20 uppercase tracking-wider">
+            {bitrate === Bitrate.B320 ? 'HQ' : 'SQ'}
+          </div>
         </div>
       </div>
       <audio

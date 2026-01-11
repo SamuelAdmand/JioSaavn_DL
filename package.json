@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.3",
-    "react": "^19.2.3",
+    "@types/crypto-js": "^4.2.2",
+    "browser-id3-writer": "4.0.0",
+    "crypto-js": "^4.2.0",
     "lucide-react": "^0.562.0",
-    "browser-id3-writer": "4.0.0"
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
