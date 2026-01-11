@@ -63,7 +63,8 @@ export const formatDuration = (seconds: number) => {
 };
 
 // @ts-ignore
-import * as MP4Box from 'mp4box';
+import ID3Writer from 'browser-id3-writer';
+// import * as MP4Box from 'mp4box'; // Removed to prevent build errors
 
 export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promise<{ blobUrl: string, filename: string }> => {
   try {
@@ -71,15 +72,15 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
     const audioRes = await fetch(downloadUrl);
     if (!audioRes.ok) throw new Error("Failed to fetch audio file");
     const audioBuffer = await audioRes.arrayBuffer();
-    const contentType = audioRes.headers.get('content-type');
 
     // 2. Prepare Filename
     const cleanName = song.name.replace(/[^a-z0-9]/gi, '_');
-    const cleanArtist = song.primaryArtists.split(',')[0].trim().replace(/[^a-z0-9]/gi, '_');
+    // Ensure artist exists or fallback to 'Unknown'
+    const artistName = (song.primaryArtists || 'Unknown Artist').split(',')[0].trim();
+    const cleanArtist = artistName.replace(/[^a-z0-9]/gi, '_') || 'Unknown';
 
-    // Default to m4a (aac) which is what JioSaavn mostly sends for high quality
-    // We will try to save as .m4a first if we can tag it, otherwise fallback to .mp3 hack
-    let filename = `${cleanName} - ${cleanArtist}.m4a`;
+    // Default to .mp3 because we are going to force an ID3 header
+    let filename = `${cleanName} - ${cleanArtist}.mp3`;
 
     // 3. Fetch Cover Art
     let coverBuffer: ArrayBuffer | undefined;
@@ -91,37 +92,15 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
       } catch (e) { console.warn("Cover art fetch failed", e); }
     }
 
-    let finalBlob: Blob = new Blob([audioBuffer], { type: 'audio/mp4' });
+    let finalBlob: Blob;
 
-    // 4. Metadata Embedding
-    // Strategy: Try Native M4A Tagging first. if it fails (or is not M4A), throw/fallback to ID3.
-    let taggedSuccess = false;
-
-    if (contentType?.includes('mp4') || contentType?.includes('aac') || downloadUrl.endsWith('.m4a') || downloadUrl.endsWith('.mp4')) {
-      try {
-        // Native M4A Tagging using custom simple atom writer (MP4Box is heavy for just tags, but let's try a lightweight atom patch approach if MP4Box fails or is too complex for simple browser write).
-        // Actually, writing atoms with MP4Box in browser is non-trivial because it requires re-muxing. 
-        // A lighter approach for "just tags" might be preferred, but let's try to simulate the standard iTunes atoms.
-
-        // NOTE: Since "MP4Box" is just a parser mainly, writing is hard. 
-        // LET'S STICK TO THE "FAKE MP3" HACK AS IT IS PROVEN TO WORK IF EXTENSION IS FORCED.
-        // The user said "still album art not getting downloaded". 
-        // This suggests the player ignores ID3 on .mp3 file if the content is AAC? Or maybe the player *requires* M4A atoms.
-
-        // Let's try to write basic M4A atoms manually? No, too risky.
-
-        // RE-ATTEMPTING "Fake MP3" BUT WITH FORENSIC PRECISION
-        // Maybe the previous attempt failed because I reverted it!
-        // I will apply the "Writer" logic again, but strictly.
-      } catch (e) {
-        console.warn("M4A Tagging skipped", e);
-      }
-    }
-
-    // Fallback: This is the logic that worked in my previous "Universal key" step but I seemingly reverted it or it failed.
-    // I will apply it 100% now.
+    // 4. "Trojan Horse" Metadata Injection
+    // Problem: ID3Writer throws error if we pass it AAC/M4A data. 
+    // Solution: We pass it an EMPTY buffer to generate valid ID3 headers (Title, Artist, Cover Art).
+    //           Then we manually concatenate [ID3 Header] + [AAC Audio Data].
+    //           We save as .mp3. Player reads tags, then hits audio stream.
     try {
-      const writer = new ID3Writer(audioBuffer);
+      const writer = new ID3Writer(new ArrayBuffer(0)); // Dummy buffer to generate tags only
       writer.setFrame('TIT2', song.name)
         .setFrame('TPE1', [song.primaryArtists])
         .setFrame('TALB', song.album)
@@ -138,17 +117,18 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
         });
       }
       writer.addTag();
-      finalBlob = writer.getBlob();
-      // CRITICAL: We MUST change extension to .mp3 for this hack to work on Windows/Android players
-      filename = filename.replace('.m4a', '.mp3');
-      taggedSuccess = true;
+
+      const id3TagBlob = writer.getBlob(); // This blob contains ONLY the ID3v2 Header + Frames
+
+      // Combine: [ID3 Tags] + [Original Audio]
+      // This is a valid ID3 file structure (ID3 tags are prepended).
+      finalBlob = new Blob([id3TagBlob, audioBuffer], { type: 'audio/mp3' });
 
     } catch (e) {
-      console.warn("Metadata embedding failed", e);
-      // Fallback to raw stream if tagging totally fails
-      if (!taggedSuccess) {
-        filename = filename.replace('.mp3', '.m4a');
-      }
+      console.warn("Metadata injection failed", e);
+      // Absolute fallback: Just save the distinct audio without tags
+      finalBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
+      filename = filename.replace('.mp3', '.m4a');
     }
 
     const blobUrl = URL.createObjectURL(finalBlob);
