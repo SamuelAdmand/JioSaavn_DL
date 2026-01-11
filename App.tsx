@@ -84,7 +84,7 @@ export default function App() {
       [song.id]: {
         id: song.id,
         name: song.name,
-        album: typeof song.album === 'string' ? song.album : song.album?.name || '',
+        album: song.album,
         image: song.image[2]?.link || song.image[1]?.link,
         status: 'Downloading',
         size: downloadData.quality.toUpperCase(),
@@ -375,9 +375,7 @@ const SongCard: React.FC<SongCardProps> = ({ song, bitrate, isPlaying, onPlay, o
           {artists}
         </p>
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-          <p className="text-xs text-zinc-500 truncate max-w-[70%]">
-            {typeof song.album === 'object' ? song.album?.name : song.album}
-          </p>
+          <p className="text-xs text-zinc-500 truncate max-w-[70%]">{song.album}</p>
           <button
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
             className="text-zinc-500 hover:text-indigo-400 transition-colors p-1"

@@ -12,11 +12,7 @@ export interface SaavnDownloadUrl {
 export interface SaavnSong {
   id: string;
   name: string;
-  album: {
-    id: string;
-    name: string;
-    url: string;
-  };
+  album: string; // Simplified back to string to prevent rendering crashes
   year: string;
   releaseDate: string;
   duration: number;

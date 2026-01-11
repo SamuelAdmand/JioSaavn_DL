@@ -37,11 +37,7 @@ export const searchSongs = async (query: string, page: number = 1, limit: number
     return {
       id: song.id,
       name: song.title || song.song || song.name,
-      album: {
-        id: song.albumid || song.album_id,
-        name: song.album || song.album_name,
-        url: song.album_url || ''
-      },
+      album: song.album || song.album_name, // Flattened to string
       year: song.year,
       releaseDate: song.release_date,
       duration: parseInt(song.duration),
@@ -101,7 +97,7 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
       writer.setFrame('TIT2', song.name)
         .setFrame('TPE1', [song.primaryArtists])
         .setFrame('TPE2', song.primaryArtists) // Album Artist
-        .setFrame('TALB', song.album.name)
+        .setFrame('TALB', song.album)
         .setFrame('TYER', parseInt(song.year || new Date().getFullYear().toString()))
         .setFrame('TLEN', song.duration * 1000)
         .setFrame('TPUB', song.label) // Publisher
