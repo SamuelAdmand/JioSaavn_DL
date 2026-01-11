@@ -63,8 +63,9 @@ export const formatDuration = (seconds: number) => {
 };
 
 // @ts-ignore
+import { MP4Edit } from 'mp4edit';
+// @ts-ignore
 import ID3Writer from 'browser-id3-writer';
-// import * as MP4Box from 'mp4box'; // Removed to prevent build errors
 
 export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promise<{ blobUrl: string, filename: string }> => {
   try {
@@ -72,15 +73,13 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
     const audioRes = await fetch(downloadUrl);
     if (!audioRes.ok) throw new Error("Failed to fetch audio file");
     const audioBuffer = await audioRes.arrayBuffer();
+    const contentType = audioRes.headers.get('content-type');
 
     // 2. Prepare Filename
     const cleanName = song.name.replace(/[^a-z0-9]/gi, '_');
-    // Ensure artist exists or fallback to 'Unknown'
     const artistName = (song.primaryArtists || 'Unknown Artist').split(',')[0].trim();
     const cleanArtist = artistName.replace(/[^a-z0-9]/gi, '_') || 'Unknown';
-
-    // Default to .mp3 because we are going to force an ID3 header
-    let filename = `${cleanName} - ${cleanArtist}.mp3`;
+    let filename = `${cleanName} - ${cleanArtist}.m4a`;
 
     // 3. Fetch Cover Art
     let coverBuffer: ArrayBuffer | undefined;
@@ -94,41 +93,58 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
 
     let finalBlob: Blob;
 
-    // 4. "Trojan Horse" Metadata Injection
-    // Problem: ID3Writer throws error if we pass it AAC/M4A data. 
-    // Solution: We pass it an EMPTY buffer to generate valid ID3 headers (Title, Artist, Cover Art).
-    //           Then we manually concatenate [ID3 Header] + [AAC Audio Data].
-    //           We save as .mp3. Player reads tags, then hits audio stream.
-    try {
-      const writer = new ID3Writer(new ArrayBuffer(0)); // Dummy buffer to generate tags only
-      writer.setFrame('TIT2', song.name)
-        .setFrame('TPE1', [song.primaryArtists])
-        .setFrame('TALB', song.album)
-        .setFrame('TYER', parseInt(song.year || new Date().getFullYear().toString()))
-        .setFrame('TLEN', song.duration * 1000)
-        .setFrame('TPUB', song.label)
-        .setFrame('TCOP', `© ${song.year} ${song.label}`);
+    // 4. Native Tagging Logic
+    // If stream is M4A (AAC), use MP4Edit to write native atoms (covr, ©nam, etc.)
+    // If stream is MP3, use ID3Writer.
 
-      if (coverBuffer) {
-        writer.setFrame('APIC', {
-          type: 3,
-          data: coverBuffer,
-          description: 'Cover'
-        });
+    const isM4a = contentType?.includes('mp4') || contentType?.includes('aac') || downloadUrl.endsWith('.m4a') || downloadUrl.endsWith('.mp4');
+
+    if (isM4a) {
+      try {
+        // Native M4A Tagging
+        const tags = {
+          title: song.name,
+          artist: song.primaryArtists,
+          album: song.album,
+          year: song.year,
+          cover: coverBuffer // MP4Edit expects ArrayBuffer for cover
+        };
+
+        // Edit the buffer to inject tags
+        const fixedBuffer = MP4Edit.giveTags(audioBuffer, tags);
+        finalBlob = new Blob([fixedBuffer], { type: 'audio/mp4' });
+
+      } catch (e) {
+        console.warn("M4A Native Tagging failed", e);
+        // Fallback: save original without tags
+        finalBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
       }
-      writer.addTag();
+    } else {
+      // ID3 Tagging for legacy MP3 streams
+      try {
+        filename = filename.replace('.m4a', '.mp3');
+        const writer = new ID3Writer(audioBuffer);
+        writer.setFrame('TIT2', song.name)
+          .setFrame('TPE1', [song.primaryArtists])
+          .setFrame('TALB', song.album)
+          .setFrame('TYER', parseInt(song.year || new Date().getFullYear().toString()))
+          .setFrame('TLEN', song.duration * 1000)
+          .setFrame('TPUB', song.label)
+          .setFrame('TCOP', `© ${song.year} ${song.label}`);
 
-      const id3TagBlob = writer.getBlob(); // This blob contains ONLY the ID3v2 Header + Frames
-
-      // Combine: [ID3 Tags] + [Original Audio]
-      // This is a valid ID3 file structure (ID3 tags are prepended).
-      finalBlob = new Blob([id3TagBlob, audioBuffer], { type: 'audio/mp3' });
-
-    } catch (e) {
-      console.warn("Metadata injection failed", e);
-      // Absolute fallback: Just save the distinct audio without tags
-      finalBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
-      filename = filename.replace('.mp3', '.m4a');
+        if (coverBuffer) {
+          writer.setFrame('APIC', {
+            type: 3,
+            data: coverBuffer,
+            description: 'Cover'
+          });
+        }
+        writer.addTag();
+        finalBlob = writer.getBlob();
+      } catch (e) {
+        console.warn("ID3 Tagging failed", e);
+        finalBlob = new Blob([audioBuffer], { type: 'audio/mp3' });
+      }
     }
 
     const blobUrl = URL.createObjectURL(finalBlob);
