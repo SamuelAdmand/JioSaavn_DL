@@ -77,23 +77,27 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
 
     // 3. If it's MP3, we try to inject metadata. If it's MP4/AAC, we just download as is (renamed).
     // Note: ID3Writer strictly works on MP3 frames.
-    const isMp3 = contentType?.includes('mpeg') || contentType?.includes('mp3') || downloadUrl.endsWith('.mp3');
+    // 3. Force treatment as MP3 for tagging. 
+    // Most streams are compatible enough for valid playback even if headers mismatch,
+    // and this ensures metadata is attached.
+
+    // Fetch Cover Art
+    let coverBuffer: ArrayBuffer | undefined;
+    // Get the highest quality image available
+    const coverUrl = song.image[song.image.length - 1]?.link || song.image[0]?.link;
+
+    if (coverUrl) {
+      try {
+        const coverRes = await fetch(coverUrl);
+        if (coverRes.ok) coverBuffer = await coverRes.arrayBuffer();
+      } catch (e) {
+        console.warn("Could not fetch cover art", e);
+      }
+    }
 
     let finalBlob: Blob;
 
-    if (isMp3) {
-      // Fetch Cover Art
-      let coverBuffer: ArrayBuffer | undefined;
-      const coverUrl = song.image[song.image.length - 1]?.link;
-      if (coverUrl) {
-        try {
-          const coverRes = await fetch(coverUrl);
-          if (coverRes.ok) coverBuffer = await coverRes.arrayBuffer();
-        } catch (e) {
-          console.warn("Could not fetch cover art", e);
-        }
-      }
-
+    try {
       const writer = new ID3Writer(audioBuffer);
       writer.setFrame('TIT2', song.name)
         .setFrame('TPE1', [song.primaryArtists])
@@ -102,7 +106,7 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
         .setFrame('TYER', parseInt(song.year || new Date().getFullYear().toString()))
         .setFrame('TLEN', song.duration * 1000)
         .setFrame('TPUB', song.label) // Publisher
-        .setFrame('TCOP', `© ${song.year} ${song.label}`); // Copyright
+        .setFrame('TCOP', `© ${song.year} ${song.label}`) // Copyright
 
       if (coverBuffer) {
         writer.setFrame('APIC', {
@@ -114,12 +118,11 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
 
       writer.addTag();
       finalBlob = writer.getBlob();
-    } else {
-      // Fallback for non-mp3 files (e.g. m4a/aac) - we can't inject ID3 but we can fix filename
+      filename = filename.replace(/\.(mp4|m4a)$/, '.mp3');
+    } catch (e) {
+      // Fallback if tagging fails (e.g. strict format mismatch)
+      console.warn("Tagging failed/skipped, saving original file", e);
       finalBlob = new Blob([audioBuffer], { type: contentType || 'audio/mp4' });
-      if (contentType?.includes('mp4') || contentType?.includes('aac')) {
-        filename = filename.replace('.mp3', '.m4a');
-      }
     }
 
     const blobUrl = URL.createObjectURL(finalBlob);
