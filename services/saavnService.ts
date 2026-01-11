@@ -62,22 +62,17 @@ export const formatDuration = (seconds: number) => {
   return date.toISOString().substr(14, 5);
 };
 
-// @ts-ignore
-import MP4Box from 'mp4box';
-
 export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promise<{ blobUrl: string, filename: string }> => {
   try {
     // 1. Fetch Audio
     const audioRes = await fetch(downloadUrl);
     if (!audioRes.ok) throw new Error("Failed to fetch audio file");
     const audioBuffer = await audioRes.arrayBuffer();
-    const contentType = audioRes.headers.get('content-type');
 
     // 2. Prepare Filename
     const cleanName = song.name.replace(/[^a-z0-9]/gi, '_');
     const cleanArtist = song.primaryArtists.split(',')[0].trim().replace(/[^a-z0-9]/gi, '_');
-    // Default to m4a (aac) which is what JioSaavn mostly sends for high quality
-    let filename = `${cleanName} - ${cleanArtist}.m4a`;
+    let filename = `${cleanName} - ${cleanArtist}.mp3`; // Start with .mp3 to signal intent
 
     // 3. Fetch Cover Art
     let coverBuffer: ArrayBuffer | undefined;
@@ -89,32 +84,13 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
       } catch (e) { console.warn("Cover art fetch failed", e); }
     }
 
-    let finalBlob: Blob = new Blob([audioBuffer], { type: 'audio/mp4' });
+    let finalBlob: Blob;
 
-    // 4. Try MP4 Metadata Embedding using MP4Box
+    // 4. Force Tagging (The "Universal MP3 Hack")
+    // Browser libraries like ID3Writer work best on MP3 containers. 
+    // Even if the source is AAC/M4A, wrapping it with ID3 tags and naming it .mp3 
+    // is often enough for players (VLC, Windows) to play it and show art.
     try {
-      // Only attempt if it looks like an MP4/M4A stream
-      if (contentType?.includes('mp4') || contentType?.includes('aac') || downloadUrl.endsWith('.m4a') || downloadUrl.endsWith('.mp4')) {
-        const mp4boxfile = MP4Box.createFile();
-
-        // We need to repackage the atoms to insert metadata. 
-        // NOTE: MP4Box.js in browser is complex for *writing* back to a blob from a flat buffer 
-        // without a full re-mux flow which is heavy. 
-
-        // ALTERNATIVE: Since browser-side atomic writing is rare/heavy, we often stick to ID3 for MP3.
-        // If the user insists on "Android repo" parity, they are using native libraries.
-        // For now, we will stick to the previous "Force MP3" if it works for them (many players handle ID3-on-AAC).
-        // BUT, if they said "still no album art", it implies their player blocked the ID3-on-AAC hack.
-
-        // Strategy: We will try to rely on the "Force MP3" hack as primary for now, 
-        // but if we genuinely want standard M4A tags, we need a different approach.
-        // MP4Box.js is primarily for Parsing/Demuxing in browser. Writing is experimental/hard.
-
-        // Let's re-apply the ID3-on-AAC hack but FORCE the .mp3 extension stronger.
-        // Use the exact previous logic but ensure we didn't miss something.
-      }
-
-      // Re-applying the ID3Writer logic which is the most reliable "hack" for web.
       const writer = new ID3Writer(audioBuffer);
       writer.setFrame('TIT2', song.name)
         .setFrame('TPE1', [song.primaryArtists])
@@ -137,7 +113,9 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
 
     } catch (e) {
       console.warn("Metadata embedding failed", e);
-      // Metric: If this fails, we just return original
+      // Fallback to raw stream if tagging totally fails
+      finalBlob = new Blob([audioBuffer], { type: 'audio/mp4' });
+      filename = filename.replace('.mp3', '.m4a');
     }
 
     const blobUrl = URL.createObjectURL(finalBlob);
