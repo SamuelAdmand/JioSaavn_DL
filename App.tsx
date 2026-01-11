@@ -84,7 +84,7 @@ export default function App() {
       [song.id]: {
         id: song.id,
         name: song.name,
-        album: song.album.name,
+        album: typeof song.album === 'string' ? song.album : song.album?.name || '',
         image: song.image[2]?.link || song.image[1]?.link,
         status: 'Downloading',
         size: downloadData.quality.toUpperCase(),
@@ -292,8 +292,8 @@ export default function App() {
                       <p className="text-xs text-zinc-500 truncate">{item.album}</p>
                       <div className="mt-1.5 flex items-center gap-2">
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${item.status === 'Done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                            item.status === 'Downloading' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 animate-pulse' :
-                              'bg-red-500/10 text-red-400 border-red-500/20'
+                          item.status === 'Downloading' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 animate-pulse' :
+                            'bg-red-500/10 text-red-400 border-red-500/20'
                           }`}>
                           {item.status}
                         </span>
@@ -375,7 +375,9 @@ const SongCard: React.FC<SongCardProps> = ({ song, bitrate, isPlaying, onPlay, o
           {artists}
         </p>
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-          <p className="text-xs text-zinc-500 truncate max-w-[70%]">{song.album.name}</p>
+          <p className="text-xs text-zinc-500 truncate max-w-[70%]">
+            {typeof song.album === 'object' ? song.album?.name : song.album}
+          </p>
           <button
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
             className="text-zinc-500 hover:text-indigo-400 transition-colors p-1"
