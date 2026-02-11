@@ -62,8 +62,18 @@ export const formatDuration = (seconds: number) => {
   return date.toISOString().substr(14, 5);
 };
 
-// @ts-ignore
-import ID3Writer from 'browser-id3-writer';
+const getFirstArtist = (artists?: string) => (artists || 'Unknown Artist').split(',')[0].trim();
+
+const getSafeYear = (year?: string) => {
+  const parsed = Number.parseInt(year || '', 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const getSafeDurationMs = (duration?: number) => {
+  if (!Number.isFinite(duration)) return undefined;
+  const durationMs = Math.floor((duration || 0) * 1000);
+  return durationMs > 0 ? durationMs : undefined;
+};
 
 export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promise<{ blobUrl: string, filename: string }> => {
   try {
@@ -74,7 +84,7 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
 
     // 2. Prepare Filename
     const cleanName = song.name.replace(/[^a-z0-9]/gi, '_');
-    const artistName = (song.primaryArtists || 'Unknown Artist').split(',')[0].trim();
+    const artistName = getFirstArtist(song.primaryArtists);
     const cleanArtist = artistName.replace(/[^a-z0-9]/gi, '_') || 'Unknown';
     // WE FORCE .MP3 extension. This is the key. 
     // Players see .mp3 -> Read ID3 Header -> See Album Art -> Play Stream (AAC) thinking it's MP3.
@@ -98,13 +108,28 @@ export const downloadSong = async (song: SaavnSong, downloadUrl: string): Promis
       // We do NOT pass the audioBuffer here because ID3Writer validates it and throws "Not an MP3" for AAC keys.
       const writer = new ID3Writer(new ArrayBuffer(0));
 
-      writer.setFrame('TIT2', song.name)
-        .setFrame('TPE1', [song.primaryArtists])
-        .setFrame('TALB', song.album)
-        .setFrame('TYER', parseInt(song.year || new Date().getFullYear().toString()))
-        .setFrame('TLEN', song.duration * 1000)
-        .setFrame('TPUB', song.label)
-        .setFrame('TCOP', `© ${song.year} ${song.label}`);
+      writer
+        .setFrame('TIT2', song.name || 'Unknown Title')
+        .setFrame('TPE1', [song.primaryArtists || 'Unknown Artist'])
+        .setFrame('TALB', song.album || 'Unknown Album');
+
+      const safeYear = getSafeYear(song.year);
+      if (safeYear) {
+        writer.setFrame('TYER', safeYear);
+      }
+
+      const safeDuration = getSafeDurationMs(song.duration);
+      if (safeDuration) {
+        writer.setFrame('TLEN', safeDuration);
+      }
+
+      if (song.label) {
+        writer.setFrame('TPUB', song.label);
+      }
+
+      if (safeYear && song.label) {
+        writer.setFrame('TCOP', `© ${safeYear} ${song.label}`);
+      }
 
       if (coverBuffer) {
         writer.setFrame('APIC', {
